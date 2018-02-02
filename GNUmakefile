@@ -85,7 +85,6 @@ PERL	:= perl
 # Only optimize to -O1 to discourage inlining, which complicates backtraces.
 CFLAGS := $(CFLAGS) $(DEFS) $(LABDEFS) -O1 -fno-builtin -I$(TOP) -MD
 CFLAGS += -fno-omit-frame-pointer
-CFLAGS += -std=gnu99
 CFLAGS += -Wall -Wno-format -Wno-unused -Werror -gstabs -m32
 # -fno-tree-ch prevented gcc from sometimes reordering read_ebp() before
 # mon_backtrace()'s function prologue on gcc version: (Debian 4.7.2-5) 4.7.2
@@ -106,7 +105,7 @@ GCC_LIB := $(shell $(CC) $(CFLAGS) -print-libgcc-file-name)
 OBJDIRS :=
 
 # Make sure that 'all' is the first target
-all: warn
+all:
 
 # Eliminate default suffix rules
 .SUFFIXES:
@@ -140,14 +139,14 @@ include kern/Makefrag
 
 QEMUOPTS = -drive file=$(OBJDIR)/kern/kernel.img,index=0,media=disk,format=raw -serial mon:stdio -gdb tcp::$(GDBPORT)
 QEMUOPTS += $(shell if $(QEMU) -nographic -help | grep -q '^-D '; then echo '-D qemu.log'; fi)
-IMAGES = warn $(OBJDIR)/kern/kernel.img
+IMAGES = $(OBJDIR)/kern/kernel.img
 QEMUOPTS += $(QEMUEXTRA)
 
 .gdbinit: .gdbinit.tmpl
 	sed "s/localhost:1234/localhost:$(GDBPORT)/" < $^ > $@
 
-gdb: warn
-	gdb -n -x .gdbinit
+gdb:
+	gdb -x .gdbinit
 
 pre-qemu: .gdbinit
 
@@ -218,7 +217,7 @@ git-handin: handin-check
 		false; \
 	fi
 
-WEBSUB := https://6828.scripts.mit.edu/2016/handin.py
+WEBSUB := https://ccutler.scripts.mit.edu/6.828/handin.py
 
 handin: tarball-pref myapi.key
 	@SUF=$(LAB); \
@@ -251,15 +250,8 @@ handin-check:
 		test "$$r" = y; \
 	fi
 
-UPSTREAM := $(shell git remote -v | grep "pdos.csail.mit.edu/6.828/2016/jos.git (fetch)" | awk '{split($$0,a," "); print a[1]}')
-
 tarball: handin-check
-	git archive --format=tar HEAD > lab$(LAB)-handin.tar
-	git diff $(UPSTREAM)/lab$(LAB) > /tmp/lab$(LAB)diff.patch
-	tar -rf lab$(LAB)-handin.tar /tmp/lab$(LAB)diff.patch
-	gzip -c lab$(LAB)-handin.tar > lab$(LAB)-handin.tar.gz
-	rm lab$(LAB)-handin.tar
-	rm /tmp/lab$(LAB)diff.patch
+	git archive --format=tar HEAD | gzip > lab$(LAB)-handin.tar.gz
 
 tarball-pref: handin-check
 	@SUF=$(LAB); \
@@ -276,15 +268,10 @@ tarball-pref: handin-check
 	else \
 		rm -f .suf; \
 	fi; \
-	git archive --format=tar HEAD > lab$(LAB)-handin.tar
-	git diff $(UPSTREAM)/lab$(LAB) > /tmp/lab$(LAB)diff.patch
-	tar -rf lab$(LAB)-handin.tar /tmp/lab$(LAB)diff.patch
-	gzip -c lab$(LAB)-handin.tar > lab$(LAB)-handin.tar.gz
-	rm lab$(LAB)-handin.tar
-	rm /tmp/lab$(LAB)diff.patch
+	git archive --prefix=lab$(LAB)/ --format=tar HEAD | gzip > lab$$SUF-handin.tar.gz
 
-myapi.key: warn
-	@echo Get an API key for yourself by visiting $(WEBSUB)/
+myapi.key:
+	@echo Get an API key for yourself by visiting $(WEBSUB)
 	@read -p "Please enter your API key: " k; \
 	if test `echo -n "$$k" |wc -c` = 32 ; then \
 		TF=`mktemp -t tmp.XXXXXX`; \
@@ -300,14 +287,6 @@ myapi.key: warn
 		echo An API key should be 32 characters long.; \
 		false; \
 	fi;
-
-warn:
-	@echo; \
-	echo "[31m******* WARNING *********"; \
-	echo "this is the 2016 6.828 lab"; \
-	echo "******* WARNING ********* [39m"; \
-	echo; \
-	false;
 
 #handin-prep:
 #	@./handin-prep
@@ -327,5 +306,4 @@ always:
 	@:
 
 .PHONY: all always \
-	handin git-handin tarball tarball-pref clean realclean distclean grade handin-prep handin-check \
-	warn
+	handin git-handin tarball tarball-pref clean realclean distclean grade handin-prep handin-check
