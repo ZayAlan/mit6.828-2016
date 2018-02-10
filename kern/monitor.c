@@ -10,6 +10,8 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
+#include <kern/pmap.h>
+
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -24,14 +26,27 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{"showmappings", "Display in a useful and easy-to-read format all of the physical page mappings", mon_showmappings},
 };
 
 /***** Implementations of basic kernel monitor commands *****/
 
 int
+mon_showmappings(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc != 3) {
+		cprintf("usage: showmappings 0x(begin) 0x(end)\n");
+	}
+	showmappings(argv[1], argv[2]);
+  return 0;
+}
+
+int
 mon_help(int argc, char **argv, struct Trapframe *tf)
 {
 	int i;
+	for (i = 1; i < argc; i++)
+	  cprintf("%d:%s\n", i, argv[i]);
 
 	for (i = 0; i < ARRAY_SIZE(commands); i++)
 		cprintf("%s - %s\n", commands[i].name, commands[i].desc);

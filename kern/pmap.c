@@ -903,3 +903,60 @@ check_page_installed_pgdir(void)
 
 	cprintf("check_page_installed_pgdir() succeeded!\n");
 }
+
+uint32_t cast2uint(char n) {
+	uint32_t num = (uint32_t) n;
+	if (num >= '0' && num <= '9') // 0 - 9
+		return num - 48;
+	else if (num >= 'A' && num <='F') // A - F
+	  return num - 55;
+	else if (num >= 'a' && num <= 'f') // a - f
+	  return num - 87;
+	else
+	  return -num;
+}
+
+physaddr_t
+str2addr(char *va) {
+	uint32_t fold = 1, va_v = 0;
+	int i;
+	if (strlen(va) < 3 || va[0] != '0' || !(va[1] == 'x' || va[1] == 'X')){
+		cprintf("Error FMT: %s\n", va);
+		return 9;
+	}
+	for (i = strlen(va) - 1; i >= 2; i--) {
+		int v = cast2uint(va[i]);
+		if (v < 0) {
+			cprintf("Error Adress: %s\n", va);
+			return 0;
+		} else {
+			va_v += fold * v;
+			fold = fold * 16;
+		}
+	}
+	return va_v;
+}
+
+void
+showmappings(char *va_b, char *va_e){
+	uintptr_t vav_b = ROUNDDOWN(str2addr(va_b), PGSIZE), vav_e = ROUNDUP(str2addr(va_e), PGSIZE);
+	cprintf("begin %x end %x\n", vav_b, vav_e);
+	uintptr_t va;
+	pte_t *pgdir, *p, v;
+	for (va = vav_b; va < vav_e; va += PGSIZE) {
+		pgdir = &kern_pgdir[PDX(va)];
+		if (!(*pgdir & PTE_P)) {
+			cprintf("page %x -- not exist\n", va);
+			continue;
+		}
+		p = (pte_t*) KADDR(PTE_ADDR(*pgdir));
+		if (!(p[PTX(va)] & PTE_P)) {
+			cprintf("page %x -- not init\n", va);
+			continue;
+		}
+		v = p[PTX(va)];
+		cprintf("page %08x - %08x PTE_P %d PTE_U %d PTE_W %d\n", va,  PTE_ADDR(v), v & PTE_P, v & PTE_U, v & PTE_W);
+
+	}
+
+}
