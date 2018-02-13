@@ -11,6 +11,7 @@
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
 #include <kern/trap.h>
+#include <kern/pmap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -25,14 +26,27 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{"showmappings", "Display in a useful and easy-to-read format all of the physical page mappings", mon_showmappings},
 };
 
 /***** Implementations of basic kernel monitor commands *****/
 
 int
+mon_showmappings(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc != 3) {
+		cprintf("usage: showmappings 0x(begin) 0x(end)\n");
+	}
+	showmappings(argv[1], argv[2]);
+  return 0;
+}
+
+int
 mon_help(int argc, char **argv, struct Trapframe *tf)
 {
 	int i;
+	for (i = 1; i < argc; i++)
+	  cprintf("%d:%s\n", i, argv[i]);
 
 	for (i = 0; i < ARRAY_SIZE(commands); i++)
 		cprintf("%s - %s\n", commands[i].name, commands[i].desc);
@@ -59,6 +73,26 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
+  uint32_t* esp_top = (uint32_t*) read_ebp();
+	struct Eipdebuginfo info;
+	cprintf("Stack backtrace:\n");
+	while (esp_top != NULL) {
+		uint32_t eip = esp_top[1];
+		cprintf("  ");
+		cprintf("ebp %08x ", (uint32_t)esp_top);
+		cprintf("eip %08x ", eip);
+		uint32_t* arg_top = esp_top + 2;
+		cprintf("args ");
+		for(int i = 0; i < 5; i++)
+		 cprintf("%08x ", arg_top[i]);
+		 cprintf("\n");
+		debuginfo_eip(eip, &info);
+		cprintf("         %s:%d: %.*s+%u\n",
+					info.eip_file, info.eip_line,
+					info.eip_fn_namelen, info.eip_fn_name,
+					eip - info.eip_fn_addr);
+		esp_top = (uint32_t*) (*esp_top);
+	}
 	return 0;
 }
 
